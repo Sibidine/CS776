@@ -6,4 +6,3 @@ backend/tmp/
 backend/uploads/*.mp4
 backend/app/services/__pycache__
 backend/app/models/__pycache__
-backend/app/models/best_micpl_model.pth.zip
