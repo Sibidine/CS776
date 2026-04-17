@@ -1,0 +1,6 @@
+backend/app/__pycache__
+backend/app/routes/__pycache__
+backend/app/routes/__pycache__
+backend/outputs/*.mp4
+backend/tmp/
+backend/uploads/*.mp4
