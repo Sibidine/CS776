@@ -4,3 +4,4 @@ backend/app/routes/__pycache__
 backend/outputs/*.mp4
 backend/tmp/
 backend/uploads/*.mp4
+backend/app/services/__pycache__
