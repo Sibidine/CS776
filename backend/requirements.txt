@@ -3,3 +3,4 @@ uvicorn
 opencv-python
 ffmpeg-python
 torch
+timm

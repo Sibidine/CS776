@@ -3,18 +3,27 @@ import torch
 import numpy as np
 import cv2
 
-MODEL_PATH = "app/models/best_micpl_model.pth"
+from app.models.model_def import (
+    DLA34FeatureExtractor,
+    SmallObjectDetector,
+    CenterNetHead
+)
+
+MODEL_PATH = "app/models/best_micpl_model.pth.zip"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = None
 head = None
 
-SEQ_LEN = 5   # from notebook
+# Match training config
+CHANNELS = 64
+SEQ_LEN = 5
+NUM_CLASSES = 1
 
 
 # -------------------------
-# Load Model (Notebook Style)
+# Load Model (MATCHES TEST CODE)
 # -------------------------
 def load_model():
     global model, head
@@ -25,22 +34,18 @@ def load_model():
     if model is None:
         checkpoint = torch.load(MODEL_PATH, map_location=device)
 
-        # ⚠️ You MUST import these from your model file
-        from app.models.model_def import (
-            DLA34FeatureExtractor,
-            RAFTFlowEstimator,
-            SmallObjectDetector,
-            CenterNetHead
-        )
-
-        CHANNELS = 64
-        NUM_CLASSES = 1
-
         backbone = DLA34FeatureExtractor(out_channels=CHANNELS, pretrained=False)
-        raft = RAFTFlowEstimator()
-        model = SmallObjectDetector(backbone, raft, channels=CHANNELS, T=SEQ_LEN).to(device)
 
-        head = CenterNetHead(in_channels=CHANNELS, num_classes=NUM_CLASSES).to(device)
+        model = SmallObjectDetector(
+            backbone,
+            channels=CHANNELS,
+            T=SEQ_LEN
+        ).to(device)
+
+        head = CenterNetHead(
+            in_channels=CHANNELS,
+            num_classes=NUM_CLASSES
+        ).to(device)
 
         model.load_state_dict(checkpoint['model_state_dict'])
         head.load_state_dict(checkpoint['head_state_dict'])
@@ -52,13 +57,13 @@ def load_model():
 
 
 # -------------------------
-# Preprocess single frame
+# Preprocess frame
 # -------------------------
 def preprocess_frame(frame):
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     frame = frame.astype(np.float32) / 255.0
 
-    # Normalize (from notebook)
+    # same normalization as training
     mean = np.array([0.485, 0.456, 0.406])
     std  = np.array([0.229, 0.224, 0.225])
 
@@ -74,12 +79,18 @@ def preprocess_frame(frame):
 def build_sequence(frames):
     """
     frames: list of length SEQ_LEN
-    returns: tensor (1, C, T, H, W)
+    returns: tensor (1, 3, T, H, W)
     """
-    processed = [preprocess_frame(f) for f in frames]
 
-    seq = np.stack(processed, axis=1)  # (C, T, H, W)
-    seq = np.expand_dims(seq, axis=0)  # (1, C, T, H, W)
+    processed = []
+
+    for frame in frames:
+        frame = preprocess_frame(frame)  # (C, H, W)
+        processed.append(frame)
+
+    seq = np.stack(processed, axis=0)   # (T, C, H, W)
+    seq = np.transpose(seq, (1, 0, 2, 3))  # (C, T, H, W)
+    seq = np.expand_dims(seq, axis=0)   # (1, C, T, H, W)
 
     return torch.tensor(seq, dtype=torch.float32).to(device)
 
@@ -101,12 +112,12 @@ def heatmap_overlay(hm, frame):
 
 
 # -------------------------
-# Main Inference
+# MAIN INFERENCE
 # -------------------------
 def run_inference(frames):
     """
-    frames: list of frames (batch from pipeline)
-    returns: list of processed frames
+    frames: list of OpenCV frames
+    returns: list of output frames
     """
 
     if model is None or head is None:
@@ -114,21 +125,21 @@ def run_inference(frames):
 
     output_frames = []
 
-    # sliding window over frames
     for i in range(len(frames)):
+
+        # Not enough frames to form sequence yet
         if i < SEQ_LEN - 1:
-            # not enough frames yet → just pass original
             output_frames.append(frames[i])
             continue
 
         seq_frames = frames[i - SEQ_LEN + 1 : i + 1]
-
-        seq_tensor = build_sequence(seq_frames)
+        seq_tensor = build_sequence(seq_frames)   # (1, 3, T, H, W)
 
         with torch.no_grad():
-            fused = model(seq_tensor)
-            final_feat = fused[:, :, -1, :, :]
-            preds = head(final_feat)
+            features = model(seq_tensor, training=True)   # MUST be True
+            features = features[:, :, -1, :, :]           # (B, C, H, W)
+
+            preds = head(features)
 
         hm = preds['hm'].detach().cpu().numpy()[0]
 
