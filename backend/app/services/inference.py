@@ -135,18 +135,17 @@ def run_inference(frames):
 
     for i in range(len(frames)):
 
-        # Not enough frames to form sequence yet
         if i < SEQ_LEN - 1:
-            output_frames.append(frames[i])
-            continue
+            pad_count = SEQ_LEN - (i + 1)
+            seq_frames = [frames[0]] * pad_count + frames[:i + 1]
+        else:
+            seq_frames = frames[i - SEQ_LEN + 1 : i + 1]
 
-        seq_frames = frames[i - SEQ_LEN + 1 : i + 1]
-        seq_tensor = build_sequence(seq_frames)   # (1, 3, T, H, W)
+        seq_tensor = build_sequence(seq_frames)
 
         with torch.no_grad():
-            features = model(seq_tensor, training=True)   # MUST be True
-            features = features[:, :, -1, :, :]           # (B, C, H, W)
-
+            features = model(seq_tensor, training=True)
+            features = features[:, :, -1, :, :]
             preds = head(features)
 
         hm = preds['hm'].detach().cpu().numpy()[0]
