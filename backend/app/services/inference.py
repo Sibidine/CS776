@@ -61,9 +61,17 @@ def load_model():
 # -------------------------
 def preprocess_frame(frame):
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    # 🔥 FIX: resize to safe dimensions (multiple of 32)
+    h, w = frame.shape[:2]
+
+    new_h = (h // 32) * 32
+    new_w = (w // 32) * 32
+
+    frame = cv2.resize(frame, (new_w, new_h))
+
     frame = frame.astype(np.float32) / 255.0
 
-    # same normalization as training
     mean = np.array([0.485, 0.456, 0.406])
     std  = np.array([0.229, 0.224, 0.225])
 
