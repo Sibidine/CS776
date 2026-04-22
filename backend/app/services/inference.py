@@ -62,7 +62,7 @@ def load_model():
 def preprocess_frame(frame):
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    # 🔥 FIX: resize to safe dimensions (multiple of 32)
+    #  resize to safe dimensions (multiple of 32)
     h, w = frame.shape[:2]
 
     new_h = (h // 32) * 32
