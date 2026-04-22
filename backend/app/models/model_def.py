@@ -48,7 +48,7 @@ class DLA34FeatureExtractor(nn.Module):
 
 
 # -----------------------------------
-# MICPL MODULE (⚠️ REQUIRED)
+# MICPL MODULE 
 # -----------------------------------
 import torch.nn.functional as F
 
