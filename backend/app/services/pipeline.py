@@ -24,7 +24,7 @@ def process_video(input_path, output_path, status_dict, task_id):
     model_available = load_model()
 
     if not model_available:
-        # ❗ fallback: copy original video
+        # fallback: copy original video
         shutil.copy(input_path, output_path)
 
         status_dict[task_id] = {
